@@ -1,0 +1,187 @@
+Reading C:/questasim64_10.7c/tcl/vsim/pref.tcl
+
+# 10.7c
+
+# do run_rl_once.do
+# ** Warning: (vlib-34) Library already exists at "work".
+# QuestaSim-64 vmap 10.7c Lib Mapping Utility 2018.08 Aug 18 2018
+# vmap work work 
+# Modifying modelsim.ini
+# QuestaSim-64 vlog 10.7c Compiler 2018.08 Aug 18 2018
+# Start time: 19:50:22 on May 09,2026
+# vlog -sv -mfcu "+cover=bcesft" "+incdir+." approx_multiplier.sv approx_mac.sv pe_4mac.sv systolic_cell_4mac.sv systolic_array_nxn.sv approx_systolic_ai_accel_top.sv accel_if.sv accel_assertions.sv accel_uvm_pkg.sv tb_uvm_top.sv 
+# -- Compiling module approx_multiplier
+# -- Compiling module approx_mac
+# -- Compiling module pe_4mac
+# -- Compiling module systolic_cell_4mac
+# -- Compiling module systolic_array_nxn
+# -- Compiling module approx_systolic_ai_accel_top
+# ** Warning: approx_systolic_ai_accel_top.sv(91): (vlog-2583) [SVCHK] - Extra checking for conflicts with always_comb and always_latch variables is done at vopt time.
+# ** Warning: approx_systolic_ai_accel_top.sv(95): (vlog-2583) [SVCHK] - Extra checking for conflicts with always_comb and always_latch variables is done at vopt time.
+# -- Compiling interface accel_if
+# -- Compiling module accel_assertions
+# -- Compiling package accel_uvm_pkg
+# -- Importing package mtiUvm.uvm_pkg (uvm-1.1d Built-in)
+# ** Note: (vlog-2286) accel_uvm_pkg.sv(6): Using implicit +incdir+C:/questasim64_10.7c/uvm-1.1d/../verilog_src/uvm-1.1d/src from import uvm_pkg
+# -- Compiling package approx_multiplier_sv_unit
+# -- Importing package mtiUvm.uvm_pkg (uvm-1.1d Built-in)
+# -- Importing package accel_uvm_pkg
+# -- Compiling module tb_uvm_top
+# 
+# Top level modules:
+# 	tb_uvm_top
+# End time: 19:50:23 on May 09,2026, Elapsed time: 0:00:01
+# Errors: 0, Warnings: 2
+# vsim -coverage -voptargs="+acc +cover=bcesft" work.tb_uvm_top "+UVM_TESTNAME=generated_rl_input_fault_test" "+UVM_NO_RELNOTES" 
+# Start time: 19:50:24 on May 09,2026
+# ** Note: (vsim-3813) Design is being optimized due to module recompilation...
+# //  Questa Sim-64
+# //  Version 10.7c win64 Aug 18 2018
+# //
+# //  Copyright 1991-2018 Mentor Graphics Corporation
+# //  All Rights Reserved.
+# //
+# //  QuestaSim and its associated documentation contain trade
+# //  secrets and commercial or financial information that are the property of
+# //  Mentor Graphics Corporation and are privileged, confidential,
+# //  and exempt from disclosure under the Freedom of Information Act,
+# //  5 U.S.C. Section 552. Furthermore, this information
+# //  is prohibited from disclosure under the Trade Secrets Act,
+# //  18 U.S.C. Section 1905.
+# //
+# Loading sv_std.std
+# Loading work.accel_if(fast)
+# Loading mtiUvm.uvm_pkg
+# Loading work.accel_uvm_pkg(fast)
+# Loading work.approx_multiplier_sv_unit(fast)
+# Loading work.tb_uvm_top(fast)
+# Loading work.accel_if(fast)
+# Loading work.approx_systolic_ai_accel_top(fast)
+# Loading work.systolic_array_nxn(fast)
+# Loading work.systolic_cell_4mac(fast)
+# Loading work.pe_4mac(fast)
+# Loading work.approx_mac(fast)
+# Loading work.approx_multiplier(fast)
+# Loading work.accel_assertions(fast)
+# Loading mtiUvm.questa_uvm_pkg(fast)
+# Loading C:/questasim64_10.7c/uvm-1.1d\win64\uvm_dpi.dll
+# ----------------------------------------------------------------
+# UVM-1.1d
+# (C) 2007-2013 Mentor Graphics Corporation
+# (C) 2007-2013 Cadence Design Systems, Inc.
+# (C) 2006-2013 Synopsys, Inc.
+# (C) 2011-2013 Cypress Semiconductor Corp.
+# ----------------------------------------------------------------
+# UVM_INFO verilog_src/questa_uvm_pkg-1.2/src/questa_uvm_pkg.sv(215) @ 0: reporter [Questa UVM] QUESTA_UVM-1.2.3
+# UVM_INFO verilog_src/questa_uvm_pkg-1.2/src/questa_uvm_pkg.sv(216) @ 0: reporter [Questa UVM]  questa_uvm::init(+struct)
+# UVM_INFO @ 0: reporter [RNTST] Running test generated_rl_input_fault_test...
+# UVM_INFO accel_uvm_pkg.sv(297) @ 75000: uvm_test_top.env.agent.drv [DRV] DUT reset completed
+# UVM_INFO accel_uvm_pkg.sv(322) @ 105000: uvm_test_top.env.agent.drv [DRV] Transaction started. inject_fault=1 pe_id=18 bit=5 cycle=5
+# UVM_INFO accel_uvm_pkg.sv(342) @ 155000: uvm_test_top.env.agent.drv [FAULT_DRV] Injected fault: PE_ID=18 BIT=5 at cycle=5
+# UVM_INFO accel_uvm_pkg.sv(416) @ 275000: uvm_test_top.env.agent.mon [MON] Captured DUT output transaction
+# UVM_INFO accel_uvm_pkg.sv(536) @ 275000: uvm_test_top.env.sb [SB] Scoreboard received transaction
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[0][0]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[0][1]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[0][2]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[0][3]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[0][4]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[0][5]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[0][6]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[0][7]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[1][0]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[1][1]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[1][2]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[1][3]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[1][4]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[1][5]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[1][6]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[1][7]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[2][0]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[2][1]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[2][2]: actual=14320 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[2][3]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[2][4]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[2][5]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[2][6]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[2][7]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[3][0]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[3][1]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[3][2]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[3][3]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[3][4]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[3][5]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[3][6]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[3][7]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[4][0]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[4][1]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[4][2]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[4][3]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[4][4]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[4][5]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[4][6]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[4][7]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[5][0]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[5][1]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[5][2]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[5][3]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[5][4]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[5][5]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[5][6]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[5][7]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[6][0]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[6][1]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[6][2]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[6][3]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[6][4]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[6][5]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[6][6]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[6][7]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[7][0]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[7][1]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[7][2]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[7][3]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[7][4]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[7][5]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[7][6]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(578) @ 275000: uvm_test_top.env.sb [SB_FAULT] Expected fault effect PE[7][7]: actual=14288 expected=14304 error=16
+# UVM_INFO accel_uvm_pkg.sv(605) @ 275000: uvm_test_top.env.sb [SB] PASS=0 FAIL=0 MISMATCH=64 TOTAL_ERROR=1024 MAX_ERROR=16
+# UVM_INFO verilog_src/uvm-1.1d/src/base/uvm_objection.svh(1267) @ 785000: reporter [TEST_DONE] 'run' phase is ready to proceed to the 'extract' phase
+# UVM_INFO accel_uvm_pkg.sv(616) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] =================================================
+# UVM_INFO accel_uvm_pkg.sv(617) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] Final Result Analysis Report
+# UVM_INFO accel_uvm_pkg.sv(618) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] =================================================
+# UVM_INFO accel_uvm_pkg.sv(620) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] PASS count           = 0
+# UVM_INFO accel_uvm_pkg.sv(624) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] FAIL count           = 0
+# UVM_INFO accel_uvm_pkg.sv(628) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] Mismatch count       = 64
+# UVM_INFO accel_uvm_pkg.sv(632) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] Total error          = 1024
+# UVM_INFO accel_uvm_pkg.sv(636) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] Maximum PE error     = 16
+# UVM_INFO accel_uvm_pkg.sv(640) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] Injected faults      = 1
+# UVM_INFO accel_uvm_pkg.sv(644) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] Detected faults      = 1
+# UVM_INFO accel_uvm_pkg.sv(648) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] Fault coverage       = 100.00 %
+# UVM_INFO accel_uvm_pkg.sv(652) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] Error per fault      = 1024.00
+# UVM_INFO accel_uvm_pkg.sv(656) @ 785000: uvm_test_top.env.sb [PYTHON_RESULT] MISMATCH=64 TOTAL_ERROR=1024 MAX_ERROR=16 INJECTED=1 DETECTED=1
+# UVM_INFO accel_uvm_pkg.sv(665) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] =================================================
+# UVM_INFO accel_uvm_pkg.sv(670) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] FAULT TEST RESULT: FAULT EFFECT DETECTED
+# UVM_INFO accel_uvm_pkg.sv(677) @ 785000: uvm_test_top.env.sb [FINAL_REPORT] =================================================
+# 
+# --- UVM Report Summary ---
+# 
+# ** Report counts by severity
+# UVM_INFO :   90
+# UVM_WARNING :    0
+# UVM_ERROR :    0
+# UVM_FATAL :    0
+# ** Report counts by id
+# [DRV]     2
+# [FAULT_DRV]     1
+# [FINAL_REPORT]    15
+# [MON]     1
+# [PYTHON_RESULT]     1
+# [Questa UVM]     2
+# [RNTST]     1
+# [SB]     2
+# [SB_FAULT]    64
+# [TEST_DONE]     1
+# ** Note: $finish    : C:/questasim64_10.7c/win64/../verilog_src/uvm-1.1d/src/base/uvm_root.svh(430)
+#    Time: 785 ns  Iteration: 54  Instance: /tb_uvm_top
+# End time: 19:50:32 on May 09,2026, Elapsed time: 0:00:08
+# Errors: 0, Warnings: 0

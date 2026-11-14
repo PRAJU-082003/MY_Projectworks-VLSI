@@ -1,0 +1,17 @@
+quit -sim
+
+vlib work
+vmap work work
+
+vlog -sv -mfcu +cover=bcesft +incdir+. approx_multiplier.sv approx_mac.sv pe_4mac.sv systolic_cell_4mac.sv systolic_array_nxn.sv approx_systolic_ai_accel_top.sv accel_if.sv accel_assertions.sv accel_uvm_pkg.sv tb_uvm_top.sv
+
+vsim -coverage -voptargs="+acc +cover=bcesft" work.tb_uvm_top +UVM_TESTNAME=generated_rl_input_fault_test +UVM_NO_RELNOTES
+
+run -all
+
+coverage save rl_coverage.ucdb
+
+coverage report -cvg -details -output rl_functional_coverage.txt
+coverage report -details -output rl_coverage_report.txt
+
+quit -sim

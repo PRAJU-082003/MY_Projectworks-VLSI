@@ -1,0 +1,217 @@
+`timescale 1ns/1ps
+
+module approx_systolic_ai_accel_top #(
+    parameter N           = 8,
+    parameter DATA_WIDTH  = 8,
+    parameter ACC_WIDTH   = 32,
+    parameter APPROX_BITS = 4,
+    parameter MAC_PER_PE  = 4
+)(
+    input  logic                                  clk,
+    input  logic                                  rst_n,
+
+    input  logic                                  start,
+    input  logic                                  clear_acc,
+
+    input  logic [(N*MAC_PER_PE*DATA_WIDTH)-1:0] row_a_in_flat,
+    input  logic [(N*MAC_PER_PE*DATA_WIDTH)-1:0] col_b_in_flat,
+
+    input  logic                                  fault_en,
+    input  logic [5:0]                            fault_pe_id,
+    input  logic [5:0]                            fault_bit_pos,
+
+    output logic [(N*N*(ACC_WIDTH+2))-1:0]        pe_sum_flat,
+    output logic [(N*N)-1:0]                      pe_valid_flat,
+
+    output logic                                  result_valid,
+    output logic                                  done,
+    output logic [7:0]                            cycle_count
+);
+
+    localparam PE_SUM_WIDTH = ACC_WIDTH + 2;
+    localparam OUT_WIDTH    = N * N * PE_SUM_WIDTH;
+    localparam ARRAY_LATENCY = (2 * N) + 6;
+
+    logic [N-1:0] row_valid_in;
+    logic [N-1:0] col_valid_in;
+
+    logic running;
+
+    logic [OUT_WIDTH-1:0] clean_pe_sum_flat;
+    logic [OUT_WIDTH-1:0] fault_mask;
+
+    logic [(N*N)-1:0] raw_pe_valid_flat;
+    logic [(N*N)-1:0] valid_seen_vec;
+
+    logic        fault_active_reg;
+    logic [5:0]  fault_pe_id_reg;
+    logic [5:0]  fault_bit_pos_reg;
+
+    integer idx;
+
+    systolic_array_nxn #(
+        .N(N),
+        .DATA_WIDTH(DATA_WIDTH),
+        .ACC_WIDTH(ACC_WIDTH),
+        .APPROX_BITS(APPROX_BITS),
+        .MAC_PER_PE(MAC_PER_PE)
+    ) u_systolic_array (
+        .clk(clk),
+        .rst_n(rst_n),
+        .clear_acc(clear_acc),
+
+        .row_valid_in(row_valid_in),
+        .col_valid_in(col_valid_in),
+
+        .row_a_in_flat(row_a_in_flat),
+        .col_b_in_flat(col_b_in_flat),
+
+        .pe_sum_flat(clean_pe_sum_flat),
+        .pe_valid_flat(raw_pe_valid_flat)
+    );
+
+genvar fp;
+
+generate
+    for (fp = 0; fp < N*N; fp = fp + 1) begin : FAULT_OUT_GEN
+
+        logic [PE_SUM_WIDTH-1:0] clean_pe_word;
+        logic [PE_SUM_WIDTH-1:0] faulted_pe_word;
+        logic [PE_SUM_WIDTH-1:0] local_fault_mask;
+
+        assign clean_pe_word =
+            clean_pe_sum_flat[(fp*PE_SUM_WIDTH) +: PE_SUM_WIDTH];
+
+        always_comb begin
+            local_fault_mask = '0;
+
+            if (fault_active_reg && (fault_pe_id_reg == fp[5:0])) begin
+                if (fault_bit_pos_reg < PE_SUM_WIDTH) begin
+                    local_fault_mask[fault_bit_pos_reg] = 1'b1;
+                end
+            end
+        end
+
+        assign faulted_pe_word = clean_pe_word ^ local_fault_mask;
+
+        assign pe_sum_flat[(fp*PE_SUM_WIDTH) +: PE_SUM_WIDTH] =
+            faulted_pe_word;
+
+    end
+endgenerate
+    // ------------------------------------------------------------
+    // Latched PE valid vector
+    // raw_pe_valid_flat pulses at different times for different PEs.
+    // valid_seen_vec remembers which PEs have already produced valid output.
+    // ------------------------------------------------------------
+    assign pe_valid_flat = valid_seen_vec;
+
+    // ------------------------------------------------------------
+    // Latched fault mask
+    // fault_en is only one cycle from driver.
+    // fault_active_reg keeps the selected fault active until result capture.
+    // ------------------------------------------------------------
+    always_comb begin
+        fault_mask = '0;
+        idx        = 0;
+
+        if (fault_active_reg) begin
+            if ((fault_pe_id_reg < (N*N)) && (fault_bit_pos_reg < PE_SUM_WIDTH)) begin
+                idx = (fault_pe_id_reg * PE_SUM_WIDTH) + fault_bit_pos_reg;
+                fault_mask[idx] = 1'b1;
+            end
+        end
+    end
+
+    assign pe_sum_flat = clean_pe_sum_flat ^ fault_mask;
+
+    // ------------------------------------------------------------
+    // Systolic skewed valid generation
+    //
+    // Important:
+    // For PE[i][j], activation reaches after j cycles.
+    // Weight reaches after i cycles.
+    //
+    // To make valid_a and valid_b meet at every PE:
+    // row_valid_in[i] must be launched at cycle i.
+    // col_valid_in[j] must be launched at cycle j.
+    //
+    // This makes PE[i][j] valid at cycle i+j.
+    // ------------------------------------------------------------
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            running           <= 1'b0;
+            cycle_count       <= 8'd0;
+            done              <= 1'b0;
+            result_valid      <= 1'b0;
+
+            row_valid_in      <= '0;
+            col_valid_in      <= '0;
+            valid_seen_vec    <= '0;
+
+            fault_active_reg  <= 1'b0;
+            fault_pe_id_reg   <= 6'd0;
+            fault_bit_pos_reg <= 6'd0;
+        end else begin
+            done         <= 1'b0;
+            result_valid <= 1'b0;
+
+            // latch valid pulses from array
+            valid_seen_vec <= valid_seen_vec | raw_pe_valid_flat;
+
+            // latch fault request
+            if (fault_en) begin
+                fault_active_reg  <= 1'b1;
+                fault_pe_id_reg   <= fault_pe_id;
+                fault_bit_pos_reg <= fault_bit_pos;
+            end
+
+            if (clear_acc) begin
+                running           <= 1'b0;
+                cycle_count       <= 8'd0;
+                row_valid_in      <= '0;
+                col_valid_in      <= '0;
+                valid_seen_vec    <= '0;
+
+                fault_active_reg  <= 1'b0;
+                fault_pe_id_reg   <= 6'd0;
+                fault_bit_pos_reg <= 6'd0;
+            end else if (start && !running) begin
+                running      <= 1'b1;
+                cycle_count  <= 8'd1;
+
+                valid_seen_vec <= '0;
+
+                row_valid_in <= '0;
+                col_valid_in <= '0;
+
+                row_valid_in[0] <= 1'b1;
+                col_valid_in[0] <= 1'b1;
+            end else if (running) begin
+                cycle_count <= cycle_count + 1'b1;
+
+                row_valid_in <= '0;
+                col_valid_in <= '0;
+
+                if (cycle_count < N) begin
+                    row_valid_in[cycle_count] <= 1'b1;
+                    col_valid_in[cycle_count] <= 1'b1;
+                end
+
+                if (&(valid_seen_vec | raw_pe_valid_flat)) begin
+                    running      <= 1'b0;
+                    done         <= 1'b1;
+                    result_valid <= 1'b1;
+                end else if (cycle_count >= ARRAY_LATENCY[7:0]) begin
+                    running      <= 1'b0;
+                    done         <= 1'b1;
+                    result_valid <= 1'b1;
+                end
+            end else begin
+                row_valid_in <= '0;
+                col_valid_in <= '0;
+            end
+        end
+    end
+
+endmodule

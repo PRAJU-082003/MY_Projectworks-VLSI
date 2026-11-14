@@ -1,0 +1,1078 @@
+`timescale 1ns/1ps
+
+package accel_uvm_pkg;
+
+    import uvm_pkg::*;
+    `include "uvm_macros.svh"
+
+    parameter int N           = 8;
+    parameter int DATA_WIDTH  = 8;
+    parameter int ACC_WIDTH   = 32;
+    parameter int APPROX_BITS = 4;
+    parameter int MAC_PER_PE  = 4;
+
+    parameter int PE_SUM_WIDTH = ACC_WIDTH + 2;
+    parameter int IN_WIDTH     = N * MAC_PER_PE * DATA_WIDTH;
+    parameter int OUT_WIDTH    = N * N * PE_SUM_WIDTH;
+
+    // ============================================================
+    // 1. Transaction
+    // ============================================================
+    class accel_txn extends uvm_sequence_item;
+
+    rand bit [IN_WIDTH-1:0]  row_a_in_flat;
+    rand bit [IN_WIDTH-1:0]  col_b_in_flat;
+
+    rand bit                 inject_fault;
+    rand bit [5:0]           fault_pe_id;
+    rand bit [5:0]           fault_bit_pos;
+    rand int unsigned        fault_cycle;
+
+    bit [OUT_WIDTH-1:0]      pe_sum_flat;
+    bit [(N*N)-1:0]          pe_valid_flat;
+    bit                      done;
+    bit                      result_valid;
+    bit [7:0]                cycle_count;
+
+    `uvm_object_utils_begin(accel_txn)
+        `uvm_field_int(row_a_in_flat, UVM_ALL_ON)
+        `uvm_field_int(col_b_in_flat, UVM_ALL_ON)
+        `uvm_field_int(inject_fault,  UVM_ALL_ON)
+        `uvm_field_int(fault_pe_id,   UVM_ALL_ON)
+        `uvm_field_int(fault_bit_pos, UVM_ALL_ON)
+        `uvm_field_int(fault_cycle,   UVM_ALL_ON)
+        `uvm_field_int(pe_sum_flat,   UVM_ALL_ON)
+        `uvm_field_int(pe_valid_flat, UVM_ALL_ON)
+        `uvm_field_int(done,          UVM_ALL_ON)
+        `uvm_field_int(result_valid,  UVM_ALL_ON)
+        `uvm_field_int(cycle_count,   UVM_ALL_ON)
+    `uvm_object_utils_end
+
+    constraint fault_c {
+        fault_pe_id inside {[0:63]};
+        fault_bit_pos inside {[0:33]};
+        fault_cycle inside {[1:25]};
+    }
+
+    function new(string name = "accel_txn");
+        super.new(name);
+    endfunction
+
+endclass
+
+// ============================================================
+// RIFT-style fault item
+// ============================================================
+class fault_item extends uvm_sequence_item;
+
+    rand bit [5:0] fault_pe_id;
+    rand bit [5:0] fault_bit_pos;
+    rand int unsigned fault_cycle;
+
+    `uvm_object_utils_begin(fault_item)
+        `uvm_field_int(fault_pe_id,   UVM_ALL_ON)
+        `uvm_field_int(fault_bit_pos, UVM_ALL_ON)
+        `uvm_field_int(fault_cycle,   UVM_ALL_ON)
+    `uvm_object_utils_end
+
+    constraint legal_fault_c {
+        fault_pe_id inside {[0:63]};
+        fault_bit_pos inside {[0:33]};
+        fault_cycle inside {[1:25]};
+    }
+
+    function new(string name = "fault_item");
+        super.new(name);
+    endfunction
+
+endclass
+
+    // ============================================================
+    // 2. Base Sequence
+    // ============================================================
+    class accel_base_seq extends uvm_sequence #(accel_txn);
+
+        `uvm_object_utils(accel_base_seq)
+
+        function new(string name = "accel_base_seq");
+            super.new(name);
+        endfunction
+
+        virtual task body();
+            accel_txn tx;
+
+            tx = accel_txn::type_id::create("tx");
+
+            start_item(tx);
+
+            // Same known input used in earlier block testing.
+            for (int i = 0; i < N; i++) begin
+                tx.row_a_in_flat[((i*MAC_PER_PE + 0)*DATA_WIDTH) +: DATA_WIDTH] = 8'd7;
+                tx.row_a_in_flat[((i*MAC_PER_PE + 1)*DATA_WIDTH) +: DATA_WIDTH] = 8'd15;
+                tx.row_a_in_flat[((i*MAC_PER_PE + 2)*DATA_WIDTH) +: DATA_WIDTH] = 8'd25;
+                tx.row_a_in_flat[((i*MAC_PER_PE + 3)*DATA_WIDTH) +: DATA_WIDTH] = 8'd100;
+
+                tx.col_b_in_flat[((i*MAC_PER_PE + 0)*DATA_WIDTH) +: DATA_WIDTH] = 8'd9;
+                tx.col_b_in_flat[((i*MAC_PER_PE + 1)*DATA_WIDTH) +: DATA_WIDTH] = 8'd15;
+                tx.col_b_in_flat[((i*MAC_PER_PE + 2)*DATA_WIDTH) +: DATA_WIDTH] = 8'd12;
+                tx.col_b_in_flat[((i*MAC_PER_PE + 3)*DATA_WIDTH) +: DATA_WIDTH] = 8'd3;
+            end
+
+            finish_item(tx);
+        endtask
+
+    endclass
+
+
+    // ============================================================
+    // 3. Random Sequence
+    // ============================================================
+    class accel_random_seq extends uvm_sequence #(accel_txn);
+
+        `uvm_object_utils(accel_random_seq)
+
+        function new(string name = "accel_random_seq");
+            super.new(name);
+        endfunction
+
+        virtual task body();
+            accel_txn tx;
+
+            repeat (5) begin
+                tx = accel_txn::type_id::create("tx");
+                start_item(tx);
+
+                if (!tx.randomize()) begin
+                    `uvm_error("RAND_SEQ", "Randomization failed")
+                end
+
+                finish_item(tx);
+            end
+        endtask
+
+    endclass
+
+
+// ============================================================
+// RIFT-style directed fault sequence
+// ============================================================
+class accel_fault_seq extends uvm_sequence #(accel_txn);
+
+    `uvm_object_utils(accel_fault_seq)
+
+    function new(string name = "accel_fault_seq");
+        super.new(name);
+    endfunction
+
+    virtual task body();
+        accel_txn tx;
+
+        tx = accel_txn::type_id::create("tx_fault");
+
+        start_item(tx);
+
+        // Same known input case
+        for (int i = 0; i < N; i++) begin
+            tx.row_a_in_flat[((i*MAC_PER_PE + 0)*DATA_WIDTH) +: DATA_WIDTH] = 8'd7;
+            tx.row_a_in_flat[((i*MAC_PER_PE + 1)*DATA_WIDTH) +: DATA_WIDTH] = 8'd15;
+            tx.row_a_in_flat[((i*MAC_PER_PE + 2)*DATA_WIDTH) +: DATA_WIDTH] = 8'd25;
+            tx.row_a_in_flat[((i*MAC_PER_PE + 3)*DATA_WIDTH) +: DATA_WIDTH] = 8'd100;
+
+            tx.col_b_in_flat[((i*MAC_PER_PE + 0)*DATA_WIDTH) +: DATA_WIDTH] = 8'd9;
+            tx.col_b_in_flat[((i*MAC_PER_PE + 1)*DATA_WIDTH) +: DATA_WIDTH] = 8'd15;
+            tx.col_b_in_flat[((i*MAC_PER_PE + 2)*DATA_WIDTH) +: DATA_WIDTH] = 8'd12;
+            tx.col_b_in_flat[((i*MAC_PER_PE + 3)*DATA_WIDTH) +: DATA_WIDTH] = 8'd3;
+        end
+
+        tx.inject_fault  = 1'b1;
+        tx.fault_pe_id   = 6'd63;  // PE[7][7]
+        tx.fault_bit_pos = 6'd10;  // flip bit 10
+        tx.fault_cycle   = 10;
+
+        finish_item(tx);
+	    endtask
+
+	endclass
+
+	class accel_random_fault_seq extends uvm_sequence #(accel_txn);
+
+	    `uvm_object_utils(accel_random_fault_seq)
+
+ 	   function new(string name = "accel_random_fault_seq");
+ 	       super.new(name);
+ 	   endfunction
+
+ 	   virtual task body();
+ 	       accel_txn tx;
+
+  	      repeat (10) begin
+	            tx = accel_txn::type_id::create("tx_random_fault");
+
+            start_item(tx);
+
+            for (int i = 0; i < N; i++) begin
+                tx.row_a_in_flat[((i*MAC_PER_PE + 0)*DATA_WIDTH) +: DATA_WIDTH] = 8'd7;
+                tx.row_a_in_flat[((i*MAC_PER_PE + 1)*DATA_WIDTH) +: DATA_WIDTH] = 8'd15;
+                tx.row_a_in_flat[((i*MAC_PER_PE + 2)*DATA_WIDTH) +: DATA_WIDTH] = 8'd25;
+                tx.row_a_in_flat[((i*MAC_PER_PE + 3)*DATA_WIDTH) +: DATA_WIDTH] = 8'd100;
+
+                tx.col_b_in_flat[((i*MAC_PER_PE + 0)*DATA_WIDTH) +: DATA_WIDTH] = 8'd9;
+                tx.col_b_in_flat[((i*MAC_PER_PE + 1)*DATA_WIDTH) +: DATA_WIDTH] = 8'd15;
+                tx.col_b_in_flat[((i*MAC_PER_PE + 2)*DATA_WIDTH) +: DATA_WIDTH] = 8'd12;
+                tx.col_b_in_flat[((i*MAC_PER_PE + 3)*DATA_WIDTH) +: DATA_WIDTH] = 8'd3;
+            end
+
+            tx.inject_fault  = 1'b1;
+            tx.fault_pe_id   = $urandom_range(0, 63);
+            tx.fault_bit_pos = $urandom_range(0, 33);
+            tx.fault_cycle   = $urandom_range(5, 20);
+
+            finish_item(tx);
+	        end
+	    endtask
+
+	endclass
+
+
+    // ============================================================
+    // 4. Sequencer
+    // ============================================================
+    class accel_sequencer extends uvm_sequencer #(accel_txn);
+
+        `uvm_component_utils(accel_sequencer)
+
+        function new(string name = "accel_sequencer", uvm_component parent = null);
+            super.new(name, parent);
+        endfunction
+
+    endclass
+
+
+    // ============================================================
+    // 5. Driver
+    // ============================================================
+    class accel_driver extends uvm_driver #(accel_txn);
+
+        `uvm_component_utils(accel_driver)
+
+        virtual accel_if.drv_mp vif;
+
+        function new(string name = "accel_driver", uvm_component parent = null);
+            super.new(name, parent);
+        endfunction
+
+        function void build_phase(uvm_phase phase);
+            super.build_phase(phase);
+
+            if (!uvm_config_db#(virtual accel_if.drv_mp)::get(this, "", "vif", vif)) begin
+                `uvm_fatal("NOVIF", "Driver virtual interface not found")
+            end
+        endfunction
+
+       task reset_dut();
+	    vif.rst_n         <= 1'b0;
+	    vif.start         <= 1'b0;
+	    vif.clear_acc     <= 1'b0;
+	    vif.row_a_in_flat <= '0;
+	    vif.col_b_in_flat <= '0;
+
+	    vif.fault_en      <= 1'b0;
+	    vif.fault_pe_id   <= 6'd0;
+	    vif.fault_bit_pos <= 6'd0;
+
+	    vif.fault_was_injected      <= 1'b0;
+	    vif.injected_fault_pe_id    <= 6'd0;
+	    vif.injected_fault_bit_pos  <= 6'd0;
+
+	    repeat (5) @(posedge vif.clk);
+
+	    vif.rst_n <= 1'b1;
+
+	    repeat (2) @(posedge vif.clk);
+
+	    vif.clear_acc <= 1'b1;
+	    @(posedge vif.clk);
+	    vif.clear_acc <= 1'b0;
+
+	    `uvm_info("DRV", "DUT reset completed", UVM_LOW)
+	endtask
+
+      task drive_one_txn(accel_txn tx);
+    int cycle;
+
+    @(posedge vif.clk);
+
+    vif.row_a_in_flat <= tx.row_a_in_flat;
+    vif.col_b_in_flat <= tx.col_b_in_flat;
+
+    vif.fault_en      <= 1'b0;
+    vif.fault_pe_id   <= tx.fault_pe_id;
+    vif.fault_bit_pos <= tx.fault_bit_pos;
+
+    vif.fault_was_injected      <= 1'b0;
+    vif.injected_fault_pe_id    <= tx.fault_pe_id;
+    vif.injected_fault_bit_pos  <= tx.fault_bit_pos;
+
+    @(posedge vif.clk);
+    vif.start <= 1'b1;
+
+    @(posedge vif.clk);
+    vif.start <= 1'b0;
+
+    `uvm_info("DRV",
+        $sformatf("Transaction started. inject_fault=%0b pe_id=%0d bit=%0d cycle=%0d",
+                  tx.inject_fault, tx.fault_pe_id, tx.fault_bit_pos, tx.fault_cycle),
+        UVM_MEDIUM)
+
+    cycle = 0;
+
+    while (vif.done !== 1'b1) begin
+        @(posedge vif.clk);
+        cycle++;
+
+        if (tx.inject_fault && cycle == tx.fault_cycle) begin
+            vif.fault_en      <= 1'b1;
+            vif.fault_pe_id   <= tx.fault_pe_id;
+            vif.fault_bit_pos <= tx.fault_bit_pos;
+
+            vif.fault_was_injected      <= 1'b1;
+            vif.injected_fault_pe_id    <= tx.fault_pe_id;
+            vif.injected_fault_bit_pos  <= tx.fault_bit_pos;
+
+            `uvm_info("FAULT_DRV",
+                $sformatf("Injected fault: PE_ID=%0d BIT=%0d at cycle=%0d",
+                          tx.fault_pe_id, tx.fault_bit_pos, cycle),
+                UVM_LOW)
+        end else begin
+            vif.fault_en <= 1'b0;
+        end
+    end
+
+    vif.fault_en <= 1'b0;
+
+    @(posedge vif.clk);
+endtask
+
+        virtual task run_phase(uvm_phase phase);
+            accel_txn tx;
+
+            reset_dut();
+
+            forever begin
+                seq_item_port.get_next_item(tx);
+                drive_one_txn(tx);
+                seq_item_port.item_done();
+            end
+        endtask
+
+    endclass
+
+
+    // ============================================================
+    // 6. Monitor
+    // ============================================================
+    class accel_monitor extends uvm_component;
+
+        `uvm_component_utils(accel_monitor)
+
+        virtual accel_if.mon_mp vif;
+        uvm_analysis_port #(accel_txn) mon_ap;
+    // ============================================================
+    // Functional coverage variables
+    // ============================================================
+    bit        cov_inject_fault;
+    bit [5:0]  cov_fault_pe_id;
+    bit [5:0]  cov_fault_bit_pos;
+    bit [7:0]  cov_fault_cycle;
+    bit [7:0]  cov_cycle_count;
+    bit        cov_done;
+    bit        cov_result_valid;
+
+    bit [7:0]  cov_a0;
+    bit [7:0]  cov_a1;
+    bit [7:0]  cov_a2;
+    bit [7:0]  cov_a3;
+
+    bit [7:0]  cov_b0;
+    bit [7:0]  cov_b1;
+    bit [7:0]  cov_b2;
+    bit [7:0]  cov_b3;
+
+    bit [33:0] cov_pe0_sum;
+    bit [33:0] cov_pe_last_sum;
+
+    // ============================================================
+    // Functional covergroup
+    // ============================================================
+    covergroup accel_functional_cg;
+        option.per_instance = 1;
+        option.name = "accel_functional_cg";
+
+        // --------------------------------------------------------
+        // Basic protocol coverage
+        // --------------------------------------------------------
+        cp_done: coverpoint cov_done {
+            bins done_seen = {1};
+        }
+
+        cp_result_valid: coverpoint cov_result_valid {
+            bins result_valid_seen = {1};
+        }
+
+        cross_done_result_valid: cross cp_done, cp_result_valid;
+
+        // --------------------------------------------------------
+        // Fault enable coverage
+        // --------------------------------------------------------
+        cp_inject_fault: coverpoint cov_inject_fault {
+            bins no_fault = {0};
+            bins fault    = {1};
+        }
+
+        // --------------------------------------------------------
+        // Fault PE location coverage
+        // 8x8 array = 64 PEs
+        // --------------------------------------------------------
+        cp_fault_pe_id: coverpoint cov_fault_pe_id {
+            bins pe_0       = {0};
+            bins pe_low     = {[1:15]};
+            bins pe_mid     = {[16:47]};
+            bins pe_high    = {[48:62]};
+            bins pe_63      = {63};
+        }
+
+        // --------------------------------------------------------
+        // Fault bit position coverage
+        // PE output width = 34 bits, valid bits 0 to 33
+        // --------------------------------------------------------
+        cp_fault_bit_pos: coverpoint cov_fault_bit_pos {
+            bins bit_0       = {0};
+            bins low_bits    = {[1:7]};
+            bins mid_bits    = {[8:23]};
+            bins high_bits   = {[24:32]};
+            bins bit_33      = {33};
+            bins invalid_bit = {[34:63]};
+        }
+
+        // --------------------------------------------------------
+        // Fault cycle coverage
+        // --------------------------------------------------------
+        cp_fault_cycle: coverpoint cov_fault_cycle {
+            bins early_cycle = {[0:7]};
+            bins mid_cycle   = {[8:15]};
+            bins late_cycle  = {[16:31]};
+            bins very_late   = {[32:255]};
+        }
+
+        // --------------------------------------------------------
+        // Output cycle count coverage
+        // --------------------------------------------------------
+        cp_cycle_count: coverpoint cov_cycle_count {
+            bins low_count  = {[0:10]};
+            bins mid_count  = {[11:20]};
+            bins high_count = {[21:40]};
+        }
+
+        // --------------------------------------------------------
+        // Image / CNN activation input coverage
+        // --------------------------------------------------------
+        cp_a0: coverpoint cov_a0 {
+            bins zero      = {0};
+            bins low_val   = {[1:63]};
+            bins mid_val   = {[64:191]};
+            bins high_val  = {[192:254]};
+            bins max_val   = {255};
+        }
+
+        cp_a1: coverpoint cov_a1 {
+            bins zero      = {0};
+            bins low_val   = {[1:63]};
+            bins mid_val   = {[64:191]};
+            bins high_val  = {[192:254]};
+            bins max_val   = {255};
+        }
+
+        cp_a2: coverpoint cov_a2 {
+            bins zero      = {0};
+            bins low_val   = {[1:63]};
+            bins mid_val   = {[64:191]};
+            bins high_val  = {[192:254]};
+            bins max_val   = {255};
+        }
+
+        cp_a3: coverpoint cov_a3 {
+            bins zero      = {0};
+            bins low_val   = {[1:63]};
+            bins mid_val   = {[64:191]};
+            bins high_val  = {[192:254]};
+            bins max_val   = {255};
+        }
+
+        // --------------------------------------------------------
+        // CNN weight/kernel input coverage
+        // --------------------------------------------------------
+        cp_b0: coverpoint cov_b0 {
+            bins zero      = {0};
+            bins low_val   = {[1:63]};
+            bins mid_val   = {[64:191]};
+            bins high_val  = {[192:254]};
+            bins max_val   = {255};
+        }
+
+        cp_b1: coverpoint cov_b1 {
+            bins zero      = {0};
+            bins low_val   = {[1:63]};
+            bins mid_val   = {[64:191]};
+            bins high_val  = {[192:254]};
+            bins max_val   = {255};
+        }
+
+        cp_b2: coverpoint cov_b2 {
+            bins zero      = {0};
+            bins low_val   = {[1:63]};
+            bins mid_val   = {[64:191]};
+            bins high_val  = {[192:254]};
+            bins max_val   = {255};
+        }
+
+        cp_b3: coverpoint cov_b3 {
+            bins zero      = {0};
+            bins low_val   = {[1:63]};
+            bins mid_val   = {[64:191]};
+            bins high_val  = {[192:254]};
+            bins max_val   = {255};
+        }
+
+        // --------------------------------------------------------
+        // Output magnitude coverage
+        // --------------------------------------------------------
+        cp_pe0_sum: coverpoint cov_pe0_sum {
+            bins zero_out  = {0};
+            bins small_out = {[1:1000]};
+            bins mid_out   = {[1001:50000]};
+            bins high_out  = {[50001:200000]};
+            bins very_high = {[200001:$]};
+        }
+
+        cp_pe_last_sum: coverpoint cov_pe_last_sum {
+            bins zero_out  = {0};
+            bins small_out = {[1:1000]};
+            bins mid_out   = {[1001:50000]};
+            bins high_out  = {[50001:200000]};
+            bins very_high = {[200001:$]};
+        }
+
+        // --------------------------------------------------------
+        // Cross coverage
+        // --------------------------------------------------------
+        cross_fault_location: cross cp_fault_pe_id, cp_fault_bit_pos;
+
+        cross_fault_time: cross cp_fault_pe_id, cp_fault_cycle;
+
+        cross_fault_enable_location: cross cp_inject_fault, cp_fault_pe_id;
+
+        cross_input_activity: cross cp_a0, cp_b0;
+
+    endgroup
+
+        function new(string name = "accel_monitor", uvm_component parent = null);
+            super.new(name, parent);
+            mon_ap = new("mon_ap", this);
+        endfunction
+
+        function void build_phase(uvm_phase phase);
+            super.build_phase(phase);
+
+            if (!uvm_config_db#(virtual accel_if.mon_mp)::get(this, "", "vif", vif)) begin
+                `uvm_fatal("NOVIF", "Monitor virtual interface not found")
+            end
+        endfunction
+
+        virtual task run_phase(uvm_phase phase);
+	    accel_txn tx;
+
+	    forever begin
+	        @(posedge vif.clk);
+
+	        if (vif.done && vif.result_valid) begin
+	    tx = accel_txn::type_id::create("tx_mon");
+
+	    tx.row_a_in_flat = vif.row_a_in_flat;
+	    tx.col_b_in_flat = vif.col_b_in_flat;
+	    tx.pe_sum_flat   = vif.pe_sum_flat;
+	    tx.pe_valid_flat = vif.pe_valid_flat;
+	    tx.done          = vif.done;
+	    tx.result_valid  = vif.result_valid;
+	    tx.cycle_count   = vif.cycle_count;
+
+	    tx.inject_fault  = vif.fault_was_injected;
+	    tx.fault_pe_id   = vif.injected_fault_pe_id;
+	    tx.fault_bit_pos = vif.injected_fault_bit_pos;
+	    tx.fault_cycle   = vif.cycle_count;
+
+	    `uvm_info("MON", "Captured DUT output transaction", UVM_MEDIUM)
+	
+	    mon_ap.write(tx);
+		end
+	    end
+	endtask
+    endclass
+
+
+// ============================================================
+// 7. Scoreboard
+// ============================================================
+class accel_scoreboard extends uvm_component;
+
+    `uvm_component_utils(accel_scoreboard)
+
+    uvm_analysis_imp #(accel_txn, accel_scoreboard) sb_imp;
+
+    int pass_count;
+    int fail_count;
+    int mismatch_count;
+
+    longint unsigned total_error;
+    longint unsigned max_error;
+    longint unsigned local_error;
+
+    int injected_fault_count;
+    int detected_fault_count;
+
+    real fault_coverage;
+    real error_per_fault;
+
+    function new(string name = "accel_scoreboard", uvm_component parent = null);
+        super.new(name, parent);
+        sb_imp = new("sb_imp", this);
+
+        pass_count           = 0;
+        fail_count           = 0;
+        mismatch_count       = 0;
+        total_error          = 0;
+        max_error            = 0;
+        local_error          = 0;
+        injected_fault_count = 0;
+        detected_fault_count = 0;
+        fault_coverage       = 0.0;
+        error_per_fault      = 0.0;
+    endfunction
+
+
+    function bit [PE_SUM_WIDTH-1:0] get_pe_sum(
+        input bit [OUT_WIDTH-1:0] flat,
+        input int row,
+        input int col
+    );
+        get_pe_sum = flat[((row*N + col)*PE_SUM_WIDTH) +: PE_SUM_WIDTH];
+    endfunction
+
+
+   function bit [15:0] approx_mult(
+    input bit [7:0] a,
+    input bit [7:0] b
+);
+    bit [15:0] exact;
+    bit [15:0] approx;
+    bit [15:0] compensation;
+
+    begin
+        exact = a * b;
+
+        // Truncate lower bits
+        approx = exact;
+        approx[APPROX_BITS-1:0] = '0;
+
+        // Match RTL compensation:
+        // APPROX_BITS = 4 gives compensation = 8
+        compensation = 16'd1 << (APPROX_BITS - 1);
+
+        approx = approx + compensation;
+
+        return approx;
+    end
+endfunction
+
+
+    function bit [PE_SUM_WIDTH-1:0] expected_pe_value(
+        input bit [IN_WIDTH-1:0] row_a,
+        input bit [IN_WIDTH-1:0] col_b,
+        input int row,
+        input int col
+    );
+        bit [7:0] a0, a1, a2, a3;
+        bit [7:0] b0, b1, b2, b3;
+        bit [PE_SUM_WIDTH-1:0] exp;
+
+        begin
+            a0 = row_a[((row*MAC_PER_PE + 0)*DATA_WIDTH) +: DATA_WIDTH];
+            a1 = row_a[((row*MAC_PER_PE + 1)*DATA_WIDTH) +: DATA_WIDTH];
+            a2 = row_a[((row*MAC_PER_PE + 2)*DATA_WIDTH) +: DATA_WIDTH];
+            a3 = row_a[((row*MAC_PER_PE + 3)*DATA_WIDTH) +: DATA_WIDTH];
+
+            b0 = col_b[((col*MAC_PER_PE + 0)*DATA_WIDTH) +: DATA_WIDTH];
+            b1 = col_b[((col*MAC_PER_PE + 1)*DATA_WIDTH) +: DATA_WIDTH];
+            b2 = col_b[((col*MAC_PER_PE + 2)*DATA_WIDTH) +: DATA_WIDTH];
+            b3 = col_b[((col*MAC_PER_PE + 3)*DATA_WIDTH) +: DATA_WIDTH];
+
+            exp = approx_mult(a0, b0)
+                + approx_mult(a1, b1)
+                + approx_mult(a2, b2)
+                + approx_mult(a3, b3);
+
+            return exp;
+        end
+    endfunction
+
+
+    function void write(accel_txn tx);
+    bit [PE_SUM_WIDTH-1:0] actual;
+    bit [PE_SUM_WIDTH-1:0] expected;
+    bit fault_detected_this_txn;
+
+    `uvm_info("SB", "Scoreboard received transaction", UVM_LOW)
+
+    fault_detected_this_txn = 1'b0;
+
+    if (tx.done !== 1'b1 || tx.result_valid !== 1'b1) begin
+        `uvm_error("SB", "done/result_valid protocol failure")
+        fail_count++;
+        return;
+    end
+
+    if (&tx.pe_valid_flat !== 1'b1) begin
+        `uvm_error("SB", "Not all PE valid bits are high")
+        fail_count++;
+    end
+
+    if (tx.inject_fault) begin
+        injected_fault_count++;
+    end
+
+    for (int r = 0; r < N; r++) begin
+        for (int c = 0; c < N; c++) begin
+
+            actual   = get_pe_sum(tx.pe_sum_flat, r, c);
+            expected = expected_pe_value(tx.row_a_in_flat, tx.col_b_in_flat, r, c);
+
+            if (actual === expected) begin
+                pass_count++;
+            end else begin
+                mismatch_count++;
+                fault_detected_this_txn = 1'b1;
+
+                if (actual > expected)
+                    local_error = actual - expected;
+                else
+                    local_error = expected - actual;
+
+                total_error += local_error;
+
+                if (local_error > max_error)
+                    max_error = local_error;
+
+                if (tx.inject_fault) begin
+                    `uvm_info("SB_FAULT",
+                        $sformatf("Expected fault effect PE[%0d][%0d]: actual=%0d expected=%0d error=%0d",
+                                  r, c, actual, expected, local_error),
+                        UVM_LOW)
+                end else begin
+                    fail_count++;
+
+                    `uvm_error("SB",
+                        $sformatf("Unexpected mismatch PE[%0d][%0d]: actual=%0d expected=%0d error=%0d",
+                                  r, c, actual, expected, local_error))
+                end
+            end
+        end
+    end
+
+    if (tx.inject_fault && fault_detected_this_txn) begin
+        detected_fault_count++;
+    end
+
+    if (injected_fault_count > 0) begin
+        fault_coverage  = (detected_fault_count * 100.0) / injected_fault_count;
+        error_per_fault = total_error * 1.0 / injected_fault_count;
+    end else begin
+        fault_coverage  = 0.0;
+        error_per_fault = 0.0;
+    end
+
+    `uvm_info("SB",
+        $sformatf("PASS=%0d FAIL=%0d MISMATCH=%0d TOTAL_ERROR=%0d MAX_ERROR=%0d",
+                  pass_count, fail_count, mismatch_count, total_error, max_error),
+        UVM_LOW)
+
+endfunction
+
+
+    function void report_phase(uvm_phase phase);
+        super.report_phase(phase);
+
+        `uvm_info("FINAL_REPORT", "=================================================", UVM_NONE)
+        `uvm_info("FINAL_REPORT", "Final Result Analysis Report", UVM_NONE)
+        `uvm_info("FINAL_REPORT", "=================================================", UVM_NONE)
+
+        `uvm_info("FINAL_REPORT",
+            $sformatf("PASS count           = %0d", pass_count),
+            UVM_NONE)
+
+        `uvm_info("FINAL_REPORT",
+            $sformatf("FAIL count           = %0d", fail_count),
+            UVM_NONE)
+
+        `uvm_info("FINAL_REPORT",
+            $sformatf("Mismatch count       = %0d", mismatch_count),
+            UVM_NONE)
+
+        `uvm_info("FINAL_REPORT",
+            $sformatf("Total error          = %0d", total_error),
+            UVM_NONE)
+
+        `uvm_info("FINAL_REPORT",
+            $sformatf("Maximum PE error     = %0d", max_error),
+            UVM_NONE)
+
+        `uvm_info("FINAL_REPORT",
+            $sformatf("Injected faults      = %0d", injected_fault_count),
+            UVM_NONE)
+
+        `uvm_info("FINAL_REPORT",
+            $sformatf("Detected faults      = %0d", detected_fault_count),
+            UVM_NONE)
+
+        `uvm_info("FINAL_REPORT",
+            $sformatf("Fault coverage       = %0.2f %%", fault_coverage),
+            UVM_NONE)
+
+        `uvm_info("FINAL_REPORT",
+            $sformatf("Error per fault      = %0.2f", error_per_fault),
+            UVM_NONE)
+
+        `uvm_info("PYTHON_RESULT",
+            $sformatf("MISMATCH=%0d TOTAL_ERROR=%0d MAX_ERROR=%0d INJECTED=%0d DETECTED=%0d",
+                      mismatch_count,
+                      total_error,
+                      max_error,
+                      injected_fault_count,
+                      detected_fault_count),
+            UVM_NONE)
+
+        `uvm_info("FINAL_REPORT", "=================================================", UVM_NONE)
+
+        if (injected_fault_count == 0 && fail_count == 0) begin
+            `uvm_info("FINAL_REPORT", "NORMAL TEST RESULT: PASSED", UVM_NONE)
+        end else if (injected_fault_count > 0 && mismatch_count > 0) begin
+            `uvm_info("FINAL_REPORT", "FAULT TEST RESULT: FAULT EFFECT DETECTED", UVM_NONE)
+        end else if (injected_fault_count > 0 && mismatch_count == 0) begin
+            `uvm_warning("FINAL_REPORT", "FAULT TEST RESULT: FAULT MASKED / NOT DETECTED")
+        end else begin
+            `uvm_error("FINAL_REPORT", "TEST FAILED")
+        end
+
+        `uvm_info("FINAL_REPORT", "=================================================", UVM_NONE)
+    endfunction
+
+endclass
+    // ============================================================
+    // 8. Agent
+    // ============================================================
+    class accel_agent extends uvm_agent;
+
+        `uvm_component_utils(accel_agent)
+
+        accel_sequencer seqr;
+        accel_driver    drv;
+        accel_monitor   mon;
+
+        function new(string name = "accel_agent", uvm_component parent = null);
+            super.new(name, parent);
+        endfunction
+
+        function void build_phase(uvm_phase phase);
+            super.build_phase(phase);
+
+            seqr = accel_sequencer::type_id::create("seqr", this);
+            drv  = accel_driver   ::type_id::create("drv",  this);
+            mon  = accel_monitor  ::type_id::create("mon",  this);
+        endfunction
+
+        function void connect_phase(uvm_phase phase);
+            super.connect_phase(phase);
+
+            drv.seq_item_port.connect(seqr.seq_item_export);
+        endfunction
+
+    endclass
+
+
+    // ============================================================
+    // 9. Environment
+    // ============================================================
+    class accel_env extends uvm_env;
+
+        `uvm_component_utils(accel_env)
+
+        accel_agent      agent;
+        accel_scoreboard sb;
+
+        function new(string name = "accel_env", uvm_component parent = null);
+            super.new(name, parent);
+        endfunction
+
+        function void build_phase(uvm_phase phase);
+            super.build_phase(phase);
+
+            agent = accel_agent     ::type_id::create("agent", this);
+            sb    = accel_scoreboard::type_id::create("sb",    this);
+        endfunction
+
+        function void connect_phase(uvm_phase phase);
+            super.connect_phase(phase);
+
+            agent.mon.mon_ap.connect(sb.sb_imp);
+        endfunction
+
+    endclass
+
+
+    // ============================================================
+    // 10. Test
+    // ============================================================
+    class accel_test extends uvm_test;
+
+        `uvm_component_utils(accel_test)
+
+        accel_env env;
+
+        function new(string name = "accel_test", uvm_component parent = null);
+            super.new(name, parent);
+        endfunction
+
+        function void build_phase(uvm_phase phase);
+            super.build_phase(phase);
+
+            env = accel_env::type_id::create("env", this);
+        endfunction
+
+        virtual task run_phase(uvm_phase phase);
+            accel_base_seq seq;
+
+            phase.raise_objection(this);
+
+            seq = accel_base_seq::type_id::create("seq");
+            seq.start(env.agent.seqr);
+
+            #100;
+
+            phase.drop_objection(this);
+        endtask
+
+    endclass
+
+
+    // ============================================================
+    // 11. Random Test
+    // ============================================================
+    class accel_random_test extends accel_test;
+
+        `uvm_component_utils(accel_random_test)
+
+        function new(string name = "accel_random_test", uvm_component parent = null);
+            super.new(name, parent);
+        endfunction
+
+        virtual task run_phase(uvm_phase phase);
+            accel_random_seq seq;
+
+            phase.raise_objection(this);
+
+            seq = accel_random_seq::type_id::create("seq");
+            seq.start(env.agent.seqr);
+
+            #200;
+
+            phase.drop_objection(this);
+        endtask
+
+    endclass
+
+// ============================================================
+// RIFT-style fault test
+// ============================================================
+class accel_fault_test extends accel_test;
+
+    `uvm_component_utils(accel_fault_test)
+
+    function new(string name = "accel_fault_test", uvm_component parent = null);
+        super.new(name, parent);
+    endfunction
+
+    virtual task run_phase(uvm_phase phase);
+        accel_fault_seq seq;
+
+        phase.raise_objection(this);
+
+        seq = accel_fault_seq::type_id::create("seq");
+        seq.start(env.agent.seqr);
+
+        #200;
+
+        phase.drop_objection(this);
+    endtask
+
+endclass
+
+class accel_random_fault_test extends accel_test;
+
+    `uvm_component_utils(accel_random_fault_test)
+
+    function new(string name = "accel_random_fault_test", uvm_component parent = null);
+        super.new(name, parent);
+    endfunction
+
+    virtual task run_phase(uvm_phase phase);
+        accel_random_fault_seq seq;
+
+        phase.raise_objection(this);
+
+        seq = accel_random_fault_seq::type_id::create("seq");
+        seq.start(env.agent.seqr);
+
+        #1000;
+
+        phase.drop_objection(this);
+    endtask
+
+endclass
+
+//`include "generated_rift_fault_seq.sv"
+
+`include "generated_rl_input_fault_seq.sv"
+
+
+class generated_rl_input_fault_test extends accel_test;
+
+    `uvm_component_utils(generated_rl_input_fault_test)
+
+    function new(string name = "generated_rl_input_fault_test", uvm_component parent = null);
+        super.new(name, parent);
+    endfunction
+
+    virtual task run_phase(uvm_phase phase);
+        generated_rl_input_fault_seq seq;
+
+        phase.raise_objection(this);
+
+        seq = generated_rl_input_fault_seq::type_id::create("seq");
+        seq.start(env.agent.seqr);
+
+        #500;
+
+        phase.drop_objection(this);
+    endtask
+
+endclass
+
+endpackage

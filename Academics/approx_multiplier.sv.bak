@@ -1,0 +1,28 @@
+`timescale 1ns/1ps
+
+module approx_multiplier #(
+    parameter DATA_WIDTH  = 8,
+    parameter APPROX_BITS = 4
+)(
+    input  logic [DATA_WIDTH-1:0]       a,
+    input  logic [DATA_WIDTH-1:0]       b,
+    output logic [(2*DATA_WIDTH)-1:0]   exact_product,
+    output logic [(2*DATA_WIDTH)-1:0]   approx_product,
+    output logic [(2*DATA_WIDTH)-1:0]   error_value
+);
+
+    localparam PRODUCT_WIDTH = 2 * DATA_WIDTH;
+
+    always_comb begin
+        exact_product = a * b;
+
+        approx_product = exact_product;
+
+        if (APPROX_BITS > 0) begin
+            approx_product[APPROX_BITS-1:0] = '0;
+        end
+
+        error_value = exact_product - approx_product;
+    end
+
+endmodule

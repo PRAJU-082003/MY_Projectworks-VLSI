@@ -1,0 +1,86 @@
+`timescale 1ns/1ps
+
+interface accel_if #(
+    parameter N           = 8,
+    parameter DATA_WIDTH  = 8,
+    parameter ACC_WIDTH   = 32,
+    parameter MAC_PER_PE  = 4
+)(
+    input logic clk
+);
+
+    localparam PE_SUM_WIDTH = ACC_WIDTH + 2;
+    localparam IN_WIDTH     = N * MAC_PER_PE * DATA_WIDTH;
+    localparam OUT_WIDTH    = N * N * PE_SUM_WIDTH;
+
+    logic rst_n;
+    logic start;
+    logic clear_acc;
+
+    logic [IN_WIDTH-1:0]     row_a_in_flat;
+    logic [IN_WIDTH-1:0]     col_b_in_flat;
+
+    logic [OUT_WIDTH-1:0]    pe_sum_flat;
+    logic [(N*N)-1:0]        pe_valid_flat;
+
+    logic result_valid;
+    logic done;
+    logic [7:0] cycle_count;
+
+    // Keep this only once
+    // RIFT-style fault injection control
+	logic        fault_en;
+	logic [5:0]  fault_pe_id;
+	logic [5:0]  fault_bit_pos;
+
+	// Fault status/reporting signals for monitor and scoreboard
+	logic        fault_was_injected;
+	logic [5:0]  injected_fault_pe_id;
+	logic [5:0]  injected_fault_bit_pos;
+
+    modport drv_mp (
+        input  clk,
+        input  done,
+        input  result_valid,
+        input  pe_sum_flat,
+        input  pe_valid_flat,
+        input  cycle_count,
+
+        output rst_n,
+        output start,
+        output clear_acc,
+        output row_a_in_flat,
+        output col_b_in_flat,
+
+	output fault_en,
+	output fault_pe_id,
+	output fault_bit_pos,
+
+	output fault_was_injected,
+	output injected_fault_pe_id,
+	output injected_fault_bit_pos
+    );
+
+    modport mon_mp (
+        input clk,
+        input rst_n,
+        input start,
+        input clear_acc,
+        input row_a_in_flat,
+        input col_b_in_flat,
+        input pe_sum_flat,
+        input pe_valid_flat,
+        input result_valid,
+        input done,
+        input cycle_count,
+
+        input fault_en,
+	input fault_pe_id,
+	input fault_bit_pos,
+
+	input fault_was_injected,
+	input injected_fault_pe_id,
+	input injected_fault_bit_pos
+    );
+
+endinterface
